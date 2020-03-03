@@ -1,0 +1,122 @@
+<html>
+  <head>
+    <script>
+      window.addEventListener('DOMContentLoaded', function() {
+	btn0 = document.getElementById('btn0');
+	btn1 = document.getElementById('btn1');
+	btn2 = document.getElementById('btn2');
+
+	btn0.addEventListener('click', function() {
+	  debugger;
+	  var fibNext = Module.cwrap('fibNext', 'number', null); 
+	  console.log(fibNext());
+	}, false);
+
+	btn1.addEventListener('click', function() {
+	  if (fib1 !== null) {
+	    console.log("fib" + fib1.instanceId() + " = " + fib1.next());
+	  } else {
+	    console.log("ERROR: fib1 is null");
+	  }
+	}, false);
+
+	btn2.addEventListener('click', function () {
+	  if (fib2 !== null) {
+	    console.log("fib" + fib2.instanceId() + " = " + fib2.next());
+	  } else {
+	    console.log("ERROR: fib2 is null");
+	  }
+	}, false);
+      });
+    </script>
+  </head>
+  <body>
+    <button id='btn0'>Call Wasm</button>
+    <button id='btn1'>dispatch 1</button>
+    <button id='btn2'>dispatch 2</button>
+    <script type='text/javascript'>
+      var Module = {};
+
+      var wasmFilename = 'gen/function.wasm';
+      var jsClueFilename = 'gen/function.js';
+
+      fetch(wasmFilename)
+	.then(response => response.arrayBuffer())
+	.then(buffer => {
+	  Module.wasmBinary = buffer;
+	  var script = document.createElement('script');
+	  script.src = jsClueFilename;
+	  script.onload = function() {
+	    console.log("Emscripten boilderplate loaded.");
+	  }
+	  document.body.appendChild(script);
+	});
+
+      var fib1 = null;
+      var fib2 = null;
+
+      class Fib {
+	constructor() {
+	  this.cppInstance = Module.ccall('new_fib', 'number', null, null);
+	}
+
+	next() {
+	  return Module.ccall('next_val', 'number', ['number'], [this.cppInstance]);
+	}
+
+	instanceId() {
+	  return this.cppInstance;
+	}
+      }
+
+      Module.onRuntimeInitialized = function() {
+	var int_sqrt = Module.cwrap('int_sqrt', 'number', ['number']);
+	console.log("int_sqrt(28) = " + int_sqrt(28));
+
+	const arrayDataToPass = [1, 2, 3, 4, 5];
+	const typedArray = new Float32Array(arrayDataToPass.length);
+
+	// Populate the array with the values
+	for (let i=0; i<arrayDataToPass.length; i++) {
+	  typedArray[i] = arrayDataToPass[i];
+	}
+
+	var buffer;
+	var result;
+	var error;
+	try {
+	  buffer = Module._malloc(typedArray.length * typedArray.BYTES_PER_ELEMENT);
+
+	  Module.HEAPF32.set(typedArray, buffer >> 2);
+
+	  result = Module.ccall('addNums', null, ['number', 'number'], [buffer, arrayDataToPass.length]);
+	} catch (e) {
+	  error = e;
+	} finally {
+	  Module._free(buffer);
+	}
+
+	if (error) throw error;
+
+	console.log('Result = ' + result);
+
+	var fibValue = Module.ccall(
+	  'fib', // name of C function
+	  'number', // return type
+	  ['number'], // argument types 
+	  [42] // arguments
+	);
+	console.log("fib(42) = " + fibValue);
+	
+	var new_fib = Module.cwrap('new_fib', 'number', null);
+	fib1 = new Fib();
+	fib2 = new Fib();
+
+	console.log("fib1 instanceId " + fib1.instanceId());
+	console.log("fib2 instanceId " + fib2.instanceId());
+
+	console.log("Emscripten initialized");
+      }
+    </script>
+  </body>
+</html>
