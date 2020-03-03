@@ -96,9 +96,30 @@
 	  Module._free(buffer);
 	}
 
-	if (error) throw error;
+	if (error) {
+	  console.log('Error', e.stack);
+	  console.log('Error', e.name);
+	  console.log('Error', e.message);
+	}
 
 	console.log('Result = ' + result);
+
+	const typedDataToSort = new Uint8Array([2, 1, 4, 5, 3]);
+	try {
+	  var bytesToAlloc = typedDataToSort.length; // * typedDataToSort.BYTES_PER_ELEMENT;
+	  buffer = Module._malloc(typedDataToSort.byteLength);
+	  Module.HEAPU8.set(typedDataToSort, buffer);
+	  Module.ccall('sortNums', null, ['number', 'number'], [buffer, typedDataToSort.length]);
+	  result = HEAPU8.subarray(buffer, buffer+typedDataToSort.byteLength);
+	} catch (e) {
+	  console.log('Error', e.stack);
+	  console.log('Error', e.name);
+	  console.log('Error', e.message);
+	} finally {
+	  Module._free(buffer);
+	}
+
+	console.log(JSON.stringify(result));
 
 	var fibValue = Module.ccall(
 	  'fib', // name of C function
